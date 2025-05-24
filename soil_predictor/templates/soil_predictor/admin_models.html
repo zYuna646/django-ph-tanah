@@ -1,0 +1,129 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+<style>
+    .model-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        padding: 15px;
+    }
+    .model-card.success {
+        border-left: 4px solid #28a745;
+    }
+    .model-card.error {
+        border-left: 4px solid #dc3545;
+    }
+    .model-info {
+        margin-top: 10px;
+    }
+    .model-action {
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Model Management</h1>
+    <p class="help">Use this page to manage your soil pH prediction models and handle any compatibility issues.</p>
+    
+    <div id="models-container">
+        <div class="loading">Loading model information...</div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modelsContainer = document.getElementById('models-container');
+        
+        // Fetch model information
+        fetch('{% url "soil_predictor:model_info" %}')
+            .then(response => response.json())
+            .then(data => {
+                modelsContainer.innerHTML = '';
+                
+                // Process each model
+                for (const [modelName, modelDetails] of Object.entries(data)) {
+                    const modelCard = document.createElement('div');
+                    modelCard.className = `model-card ${modelDetails.exists ? 'success' : 'error'}`;
+                    
+                    const nameDisplay = modelName.replace('_model', '').toUpperCase();
+                    
+                    let statusText = modelDetails.exists ? 
+                        `Available (${modelDetails.type})` : 
+                        'Not available';
+                    
+                    let actionHtml = '';
+                    if (modelDetails.exists && modelDetails.type === 'H5') {
+                        actionHtml = `
+                            <div class="model-action">
+                                <button 
+                                    class="convert-btn button" 
+                                    data-model="${modelName}"
+                                >
+                                    Convert to SavedModel Format
+                                </button>
+                                <span class="convert-status" id="status-${modelName}"></span>
+                            </div>
+                        `;
+                    }
+                    
+                    let sizeText = modelDetails.size ? 
+                        `Size: ${modelDetails.size.toFixed(2)} MB` : 
+                        '';
+                    
+                    let layersText = modelDetails.layers ? 
+                        `Layers: ${modelDetails.layers}` : 
+                        '';
+                    
+                    modelCard.innerHTML = `
+                        <h2>${nameDisplay} Model</h2>
+                        <div class="model-info">
+                            <p><strong>Status:</strong> ${statusText}</p>
+                            <p>${sizeText}</p>
+                            <p>${layersText}</p>
+                            ${modelDetails.error ? `<p class="error-text">Error: ${modelDetails.error}</p>` : ''}
+                        </div>
+                        ${actionHtml}
+                    `;
+                    
+                    modelsContainer.appendChild(modelCard);
+                }
+                
+                // Add event listeners for convert buttons
+                document.querySelectorAll('.convert-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const modelName = this.getAttribute('data-model');
+                        const statusElement = document.getElementById(`status-${modelName}`);
+                        
+                        statusElement.textContent = 'Converting...';
+                        this.disabled = true;
+                        
+                        fetch(`{% url "soil_predictor:convert_model" model_name="MODEL_NAME" %}`.replace('MODEL_NAME', modelName))
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    statusElement.textContent = 'Success! Refresh page to see updated status.';
+                                    statusElement.style.color = 'green';
+                                } else {
+                                    statusElement.textContent = `Error: ${data.message}`;
+                                    statusElement.style.color = 'red';
+                                    this.disabled = false;
+                                }
+                            })
+                            .catch(error => {
+                                statusElement.textContent = `Error: ${error.message}`;
+                                statusElement.style.color = 'red';
+                                this.disabled = false;
+                            });
+                    });
+                });
+            })
+            .catch(error => {
+                modelsContainer.innerHTML = `<div class="errornote">Error loading model information: ${error.message}</div>`;
+            });
+    });
+</script>
+{% endblock %} 

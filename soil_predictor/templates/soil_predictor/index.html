@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soil pH Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 40px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .hero-section {
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1605000797499-95a51c5269ae?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .hero-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-top: -60px;
+            position: relative;
+            z-index: 10;
+        }
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 600;
+            padding: 15px 20px;
+            border-radius: 0;
+        }
+        .nav-tabs .nav-link.active {
+            color: #198754;
+            border-bottom: 3px solid #198754;
+            background-color: transparent;
+        }
+        .tab-content {
+            padding: 20px 0;
+        }
+        .upload-section, .live-section {
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .result-section {
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #e9f7ef;
+        }
+        .model-select {
+            margin-bottom: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .video-container {
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+        }
+        #video {
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+        }
+        #canvas {
+            display: none;
+        }
+        .camera-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .camera-btn {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            margin: 0 10px;
+        }
+        .feature-card {
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            color: #198754;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="container">
+            <h1 class="hero-title">Soil pH Predictor</h1>
+            <p class="hero-subtitle">Analyze your soil pH level with our advanced AI models</p>
+        </div>
+    </div>
+
+    <div class="container main-container">
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs" id="predictionTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-tab-pane" type="button" role="tab" aria-controls="upload-tab-pane" aria-selected="true">
+                    <i class="fas fa-upload me-2"></i>Upload Image
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="live-tab" data-bs-toggle="tab" data-bs-target="#live-tab-pane" type="button" role="tab" aria-controls="live-tab-pane" aria-selected="false">
+                    <i class="fas fa-camera me-2"></i>Live Camera
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="predictionTabContent">
+            <!-- Upload Tab -->
+            <div class="tab-pane fade show active" id="upload-tab-pane" role="tabpanel" aria-labelledby="upload-tab" tabindex="0">
+                <div class="upload-section">
+                    <h3 class="mb-4"><i class="fas fa-upload me-2"></i>Upload Soil Image</h3>
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="prediction_type" value="upload">
+                        
+                        {% if error %}
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error:</strong> {{ error }}
+                            <p class="mt-2 mb-0 small">
+                                {% if error_details %}
+                                    <strong>Suggestion:</strong> {{ error_details.suggestion }}
+                                {% else %}
+                                    If you're experiencing model loading issues, please try a different model or check if all model files are correctly placed in the 'models' directory.
+                                {% endif %}
+                                {% if user.is_staff %}
+                                <br>
+                                <strong>Admin:</strong> You can <a href="{% url 'soil_predictor:admin_models' %}">manage models</a> to convert them to a more compatible format.
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="model" class="form-label">Select Model:</label>
+                            <select class="form-select model-select" name="model" id="model">
+                                <option value="efficientnet_model">EfficientNet Model</option>
+                                <option value="resnet_model">ResNet Model</option>
+                                <option value="scnn_model">SCNN Model</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="image" class="form-label">Upload Soil Image:</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/png, image/jpeg, image/jpg" required>
+                            <div class="form-text">Supported formats: JPG, JPEG, PNG</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-microscope me-2"></i>Analyze pH
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Live Camera Tab -->
+            <div class="tab-pane fade" id="live-tab-pane" role="tabpanel" aria-labelledby="live-tab" tabindex="0">
+                <div class="live-section">
+                    <h3 class="mb-4"><i class="fas fa-camera me-2"></i>Live Soil Analysis</h3>
+                    
+                    <div class="mb-3">
+                        <label for="live-model" class="form-label">Select Model:</label>
+                        <select class="form-select model-select" id="live-model">
+                            <option value="efficientnet_model">EfficientNet Model</option>
+                            <option value="resnet_model">ResNet Model</option>
+                            <option value="scnn_model">SCNN Model</option>
+                        </select>
+                    </div>
+                    
+                    <div class="video-container">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                    </div>
+                    
+                    <div class="camera-controls">
+                        <button id="startCameraBtn" class="btn btn-primary camera-btn">
+                            <i class="fas fa-play me-2"></i>Start Camera
+                        </button>
+                        <button id="capturePredictBtn" class="btn btn-success camera-btn" disabled>
+                            <i class="fas fa-microscope me-2"></i>Capture & Analyze
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" class="result-section {% if not prediction %}hidden{% endif %}">
+            <h3 class="mb-4"><i class="fas fa-chart-pie me-2"></i>Prediction Result</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    {% if prediction %}
+                        <img src="{{ image_url }}" class="img-fluid rounded" alt="Analyzed soil image" id="resultImage">
+                    {% else %}
+                        <img src="" class="img-fluid rounded hidden" alt="Analyzed soil image" id="capturedImage">
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title" id="resultClass">
+                                {% if prediction %}Soil pH Class: {{ prediction.class }}{% endif %}
+                            </h5>
+                            <p class="card-text" id="resultConfidence">
+                                {% if prediction %}Confidence: {{ prediction.confidence|floatformat:2 }}%{% endif %}
+                            </p>
+                            <p class="card-text" id="resultModel">
+                                {% if prediction %}Model Used: {{ model_used }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mt-5">
+            <h3 class="text-center mb-4">Features</h3>
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <h5>Upload Image</h5>
+                    <p>Upload soil images and get instant pH analysis</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <h5>Live Analysis</h5>
+                    <p>Analyze soil pH in real-time using your camera</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h5>Multiple ML Models</h5>
+                    <p>Choose from EfficientNet, ResNet, and SCNN models</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // DOM Elements
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const capturePredictBtn = document.getElementById('capturePredictBtn');
+        const resultSection = document.getElementById('resultSection');
+        const resultImage = document.getElementById('capturedImage');
+        const resultClass = document.getElementById('resultClass');
+        const resultConfidence = document.getElementById('resultConfidence');
+        const resultModel = document.getElementById('resultModel');
+        
+        let stream = null;
+        
+        // Start Camera
+        startCameraBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'environment' // Use back camera if available
+                    } 
+                });
+                video.srcObject = stream;
+                startCameraBtn.disabled = true;
+                capturePredictBtn.disabled = false;
+            } catch (err) {
+                console.error('Error accessing camera: ', err);
+                alert('Could not access camera. Please make sure you have granted permission and try again.');
+            }
+        });
+        
+        // Capture and Predict
+        capturePredictBtn.addEventListener('click', () => {
+            // Get context from canvas
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get the data URL from canvas
+            const imageDataURL = canvas.toDataURL('image/jpeg');
+            
+            // Display the captured image
+            resultImage.src = imageDataURL;
+            resultImage.classList.remove('hidden');
+            
+            // Get selected model
+            const model = document.getElementById('live-model').value;
+            
+            // Send image data to server for prediction
+            sendImageForPrediction(imageDataURL, model);
+        });
+        
+        // Send captured image to server for prediction
+        function sendImageForPrediction(imageDataURL, model) {
+            // Show loading indicator
+            resultSection.classList.remove('hidden');
+            resultClass.innerHTML = '<div class="spinner-border text-success" role="status"><span class="visually-hidden">Loading...</span></div> Analyzing image...';
+            resultConfidence.textContent = '';
+            resultModel.textContent = '';
+            
+            // Convert data URL to blob
+            const fetchBlob = fetch(imageDataURL).then(res => res.blob());
+            
+            fetchBlob.then(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'captured_image.jpg');
+                formData.append('model', model);
+                formData.append('prediction_type', 'live');
+                
+                // Get the CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                // Send request to server
+                fetch('{% url "soil_predictor:predict_live" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        let errorMessage = `<div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Error:</strong> ${data.error}`;
+                        
+                        if (data.suggestion) {
+                            errorMessage += `<p class="mt-2 mb-0 small">
+                                <strong>Suggestion:</strong> ${data.suggestion}
+                            </p>`;
+                        }
+                        
+                        errorMessage += `</div>`;
+                        
+                        resultClass.innerHTML = errorMessage;
+                        resultConfidence.textContent = '';
+                        resultModel.textContent = 'Please try a different model or check your image.';
+                    } else {
+                        // Display results
+                        resultClass.textContent = `Soil pH Class: ${data.class}`;
+                        resultConfidence.textContent = `Confidence: ${data.confidence.toFixed(2)}%`;
+                        resultModel.textContent = `Model Used: ${model}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error predicting image: ', error);
+                    resultClass.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i><strong>Error:</strong> Failed to process the image</div>`;
+                    resultConfidence.textContent = '';
+                    resultModel.textContent = 'Please check your connection and try again.';
+                });
+            });
+        }
+        
+        // Clean up when changing tabs
+        const tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+        tabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', event => {
+                // Stop camera if user switches from live tab
+                if (event.target.id !== 'live-tab' && stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                    startCameraBtn.disabled = false;
+                    capturePredictBtn.disabled = true;
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
